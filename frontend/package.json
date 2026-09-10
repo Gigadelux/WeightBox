@@ -6,13 +6,23 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test src/lib/tests/filters.test.mjs",
+    "test:integration": "node --test src/lib/tests/warehouse.test.mjs",
+    "test:http": "node --test src/lib/tests/http.test.mjs"
   },
   "dependencies": {
+    "@headlessui/react": "2.2.10",
+    "@number-flow/react": "0.6.2",
+    "framer-motion": "^13.2.0",
+    "lucide-react": "1.44.0",
+    "motion": "13.2.0",
     "next": "16.3.3",
+    "pg": "8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "server-only": "0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

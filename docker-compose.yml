@@ -1,28 +1,38 @@
 services:
-
   db:
     image: postgres:16-alpine
-    container_name: weightbox-db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-weightbox_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-weightbox}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 12
+      start_period: 10s
 
   etl:
     build:
       context: ./etl
-    container_name: weightbox-etl
-    env_file:
-      - .env
+      target: runtime
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-weightbox_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-weightbox}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      ETL_CSV_MODELS_PATH: ${ETL_CSV_MODELS_PATH:-/app/csv/notable_ai_models.csv}
+      ETL_CSV_GPUS_PATH: ${ETL_CSV_GPUS_PATH:-/app/csv/gpu_specs_v7.csv}
+      ETL_BATCH_SIZE: ${ETL_BATCH_SIZE:-5000}
+      ETL_SKIP_ODS_IF_LOADED: ${ETL_SKIP_ODS_IF_LOADED:-true}
+      ETL_FAIL_FAST: ${ETL_FAIL_FAST:-true}
+      ETL_LOG_LEVEL: ${ETL_LOG_LEVEL:-INFO}
     volumes:
       - ./csv:/app/csv:ro
     depends_on:
@@ -30,6 +40,57 @@ services:
         condition: service_healthy
     profiles:
       - etl
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runner
+    restart: unless-stopped
+    init: true
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-weightbox_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-weightbox}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health', {signal: AbortSignal.timeout(8000)}).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 20s
+
+  test-db:
+    image: postgres:16-alpine
+    profiles: [test]
+    environment:
+      POSTGRES_USER: weightbox_test
+      POSTGRES_PASSWORD: local_test_only
+      POSTGRES_DB: weightbox_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U weightbox_test -d weightbox_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  tests:
+    build:
+      context: ./etl
+      target: test
+    profiles: [test]
+    environment:
+      TEST_DATABASE_URL: postgresql://weightbox_test:local_test_only@test-db:5432/weightbox_test
+    depends_on:
+      test-db:
+        condition: service_healthy
+    command: ["pytest", "-ra"]
 
 volumes:
   postgres_data:

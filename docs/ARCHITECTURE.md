@@ -122,15 +122,37 @@ schema check. Results move between phases as Pydantic models (`PhaseReport`,
 
 ## Deployment
 
-```
-cp .env.example .env          # set POSTGRES_PASSWORD and matching URLs
-docker compose up -d db
-docker compose --profile etl run --rm etl
-docker compose run --rm etl pytest -q
+See the [README](../README.md#quick-start) for setup, configuration and commands.
+
+```bash
+cp -n .env.example .env
+# Set POSTGRES_PASSWORD; preserve an existing .env.
+sh scripts/start.sh
+docker compose --profile test run --build --rm tests
 ```
 
-`docker-compose.yml` defines `db` (postgres:16-alpine with a healthcheck) and
-`etl` (built from `etl/Dockerfile`, `--profile etl`, `./csv` mounted read-only).
-Connection parameters and ETL settings all come from `.env`; nothing is
-hard-coded. `database/schema.sql` is a generated read-only reference of what the
-ETL builds.
+Compose defines `db` (PostgreSQL 16 with persistent storage), `etl` (one-shot
+Python 3.12 job, profile `etl`, CSVs mounted read-only), and `frontend`
+(Node 22 / Next.js standalone server). `test-db` and `tests` belong to the
+optional `test` profile and use disposable database storage.
+
+The startup script waits for the database, runs ETL, then starts the frontend.
+Compose itself requires database health but does not automatically run the ETL
+profile. An unpopulated database makes frontend readiness return 503.
+The server-only PostgreSQL pool reads the same connection parts as the ETL.
+Browser requests stay on the Next.js origin; there is no separate API tier.
+The `/` workbench renders GPU selection, model compatibility, and three analyses
+through server components and parameterized SQL. `/data` reads source-load and
+validation metadata; `/methodology` explains the formulas. Client components
+manage URL navigation and charts without receiving connection credentials.
+`/api/health` remains the operational readiness endpoint.
+
+The timeline and domain analyses read materialized views. The VRAM trade-off
+queries the star schema directly because the generation view groups by model
+parameter bucket rather than GPU VRAM. Rates exclude unknown parameter counts;
+the interface distinguishes pair counts from distinct-model counts.
+
+Both application containers use non-root runtime users. Docker build contexts
+exclude secrets, host dependencies and generated output. The development
+override mounts only frontend source and public assets, leaving Linux
+dependencies and Next.js build output inside the container.

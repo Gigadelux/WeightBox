@@ -1,0 +1,11 @@
+# Usage after loading the warehouse:
+# docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d --wait frontend
+services:
+  frontend:
+    build:
+      target: development
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+    healthcheck:
+      start_period: 60s
