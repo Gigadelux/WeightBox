@@ -114,43 +114,78 @@ of the pipeline.
 
 ## Quick start
 
-Requires Docker + Docker Compose.
+Requires Docker and Docker Compose; start the Docker engine first.
+Run from the repository root:
 
 ```bash
-cp .env.example .env
-# edit .env: set POSTGRES_PASSWORD and the matching DATABASE_URL / PG_DSN
-
-docker compose up -d db                          # start PostgreSQL
-docker compose --profile etl run --rm etl        # run the ETL (all four phases)
-docker compose run --rm etl pytest -q            # run the test suite
-
-cd frontend && npm install && npm run dev        # start the dashboard
-# the frontend needs its own DATABASE_URL pointing at localhost:5432
+# Only on first setup; preserve an existing .env.
+cp -n .env.example .env
+# Set POSTGRES_PASSWORD in .env before starting.
+sh scripts/start.sh
 ```
 
-| Service | URL |
-|---|---|
-| PostgreSQL | `localhost:5432` (db `weightbox`) |
-| Next.js dashboard | <http://localhost:3000> |
-
-Inspect the result:
+The script builds the images, waits for PostgreSQL, runs the one-shot ETL, and
+starts Next.js after a successful load. Open <http://localhost:3000>.
+The homepage opens the hardware workbench, with live GPU selection, model
+compatibility, and warehouse comparisons. Methodology and dataset pages explain
+the estimates and their limits. Readiness is at <http://localhost:3000/api/health>.
 
 ```bash
-docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  -c "SELECT count(*) FROM fact_gpu_model_compatibility;" \
-  -c "TABLE validator_fact_nulls;"
+docker compose ps
+curl --fail http://localhost:3000/api/health
+docker compose logs --tail=100 db frontend
 ```
 
-Re-running the ETL is safe. The ODS upload is skipped when the source file is
-unchanged, and the star schema is rebuilt from the ODS each time (Refresh).
+Readiness returns `{"status":"ok","database":"ready"}`. Only PostgreSQL and
+Next.js stay running; ETL exits after loading and checking the warehouse.
+The first build needs network access for images, packages and Google Fonts.
+
+### Configuration and storage
+
+The root `.env` supplies shared database credentials and optional host ports
+(`POSTGRES_HOST_PORT=5432`, `FRONTEND_PORT=3000`). Containers connect to `db:5432`.
+Use a different `COMPOSE_PROJECT_NAME` for an independent installation. Keep
+`.env` private; single-quote values containing `$` or `#` and do not source it
+in a shell. `docker compose config --quiet` validates without printing secrets.
+
+PostgreSQL data persists in the `postgres_data` volume. Changing `.env` does
+not change credentials in an existing database. Rerunning `scripts/start.sh`
+skips unchanged raw uploads and rebuilds the star schema and views; the frontend
+stays stopped during this refresh. An ETL error leaves it stopped until fixed.
+
+```bash
+# Resume an already-populated app without refreshing data
+docker compose up -d --wait
+
+# Rebuild just the production frontend
+docker compose up --build -d --wait frontend
+
+# Run Python tests against a separate disposable database
+docker compose --profile test run --build --rm tests
+docker compose --profile test stop test-db
+docker compose --profile test rm -f test-db
+
+# Check warehouse health without reloading it
+docker compose --profile etl run --rm etl python -m src.main --only health
+
+# Stop while preserving data
+docker compose stop
+```
+
+Never point `TEST_DATABASE_URL` at the application warehouse: integration
+fixtures drop and recreate tables. `docker compose down` preserves the named
+volume; adding `--volumes` deletes it. If readiness fails, inspect the logs,
+check credentials, and run `sh scripts/start.sh` if the warehouse needs loading.
+Both published ports bind to localhost; this is a local setup.
 
 ## Status
 
-The ETL is implemented and tested against the real datasets: 1,052 model records
-and 3,056 GPU records load into the ODS, cleansing keeps 1,052 models and 617
-GPUs, and the fact table holds their cross product. `docker-compose.yml` defines
-`db` and `etl` only; there is no API tier. The frontend is still the default
-Next.js scaffold.
+The ETL loads 1,052 model records and 3,056 GPU records into ODS. Cleansing keeps
+1,052 models and 617 GPUs, producing 649,084 compatibility pairs. Compose now
+includes PostgreSQL, the one-shot ETL, the Next.js frontend, and an optional
+isolated test setup. The frontend includes a Tailwind hardware workbench, direct
+server-side SQL integration, methodology and dataset pages, and readiness checks.
+See [frontend/README.md](./frontend/README.md) for frontend tests and development.
 
 ## Team
 
