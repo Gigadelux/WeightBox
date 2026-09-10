@@ -1,3 +1,5 @@
-pandas
-sqlalchemy
-psycopg[binary]
+pandas>=2.2
+sqlalchemy>=2.0
+psycopg[binary]>=3.2
+pydantic>=2.7
+pydantic-settings>=2.3
