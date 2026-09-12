@@ -183,10 +183,11 @@ Both published ports bind to localhost; this is a local setup.
 ## Status
 
 The ETL is implemented and tested against the real datasets: 1,052 model records
-and 3,056 GPU records load into the ODS, cleansing keeps 1,052 models and 617
-GPUs, and the fact table holds their cross product. `docker-compose.yml` defines
-`db` and `etl` only; there is no API tier. The frontend is still the default
-Next.js scaffold.
+and 3,056 GPU records load into the ODS, cleansing keeps 721 models (331 dropped
+for a blank `Parameters` cell with no recoverable size in the model name) and
+617 GPUs, and the fact table holds their cross product (444,857 rows).
+`docker-compose.yml` defines `db` and `etl` only; there is no API tier. The
+frontend is still the default Next.js scaffold.
 
 ## Team
 
