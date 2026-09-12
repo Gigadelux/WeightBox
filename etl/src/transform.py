@@ -202,6 +202,33 @@ def plausible_parameter_count(value: object) -> float | None:
     return f
 
 
+# "<n>B"/"M"/"T" size tokens, plus the "<experts>x<n>B" MoE shorthand (e.g.
+# "Mixtral-8x7B" -> 8 * 7B). Requires the letter to sit directly against the
+# number so "GPT-4", "Llama-3.1" etc. never match.
+_PARAM_SIZE_RE = re.compile(
+    r"(?<![A-Za-z0-9])(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)\s*([BMT])(?![A-Za-z])"
+    r"|(?<![A-Za-z0-9])(\d+(?:\.\d+)?)\s*([BMT])(?![A-Za-z])"
+)
+_SIZE_MULTIPLIER: dict[str, float] = {"M": 1e6, "B": 1e9, "T": 1e12}
+
+
+def parameter_count_from_name(name: object) -> float | None:
+    """Best-effort parameter count encoded directly in the model name itself
+    (`"Llama-3.1-Nemotron-70B-Instruct"` -> 70e9, `"Mixtral-8x7B"` -> 56e9).
+    Used only as a fallback when the source `Parameters` cell is blank; takes
+    the last size token found, returns `None` if the name carries none."""
+    s = _clean_str(name)
+    if s is None:
+        return None
+    last: float | None = None
+    for m in _PARAM_SIZE_RE.finditer(s):
+        if m.group(3):  # MoE shorthand: experts x per-expert size
+            last = float(m.group(1)) * float(m.group(2)) * _SIZE_MULTIPLIER[m.group(3)]
+        else:
+            last = float(m.group(4)) * _SIZE_MULTIPLIER[m.group(5)]
+    return last
+
+
 # Fact-level arithmetic (mirrors SQL.queries.fact_build)
 
 def model_footprint_gb(param_count: float | None, precision: str) -> float | None:

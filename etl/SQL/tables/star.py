@@ -24,6 +24,7 @@ DIM_MODEL = TableSpec(
         ColumnSpec(name="is_generative", sql_type="boolean", nullable=False),
         ColumnSpec(name="throughput_unit", sql_type="text", nullable=True),
         ColumnSpec(name="parameter_count", sql_type="numeric", nullable=True),
+        ColumnSpec(name="parameter_count_is_estimated", sql_type="boolean", nullable=False, default="false"),
         ColumnSpec(name="parameter_bucket", sql_type="text", nullable=False),
         ColumnSpec(name="training_compute_flop", sql_type="numeric", nullable=True),
         ColumnSpec(name="release_date", sql_type="date", nullable=False),

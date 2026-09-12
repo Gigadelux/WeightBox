@@ -200,12 +200,26 @@ def cleanse_models(ods: pd.DataFrame) -> CleanResult:
             continue
         month, quarter, year, decade = transform.calendar_parts(release_date)
 
-        # M3: parameter count (null allowed)
-        params = transform.plausible_parameter_count(r.get("parameters"))
-        if params is None and transform.to_float(r.get("parameters")) is not None:
+        # M3: parameter count. A blank `Parameters` cell is recovered from a
+        # size token in the model name itself (e.g. "...-70B-Instruct"); if
+        # the name carries no such token, the model is discarded rather than
+        # kept with an unknown parameter count. An implausible (non-blank)
+        # value is still nulled and kept, unchanged from before.
+        raw_params = r.get("parameters")
+        params = transform.plausible_parameter_count(raw_params)
+        params_estimated = False
+        if params is None and transform.to_float(raw_params) is not None:
             out.bump("parameter_out_of_range")
         if params is None:
             out.bump("parameter_missing")
+            if transform.to_float(raw_params) is None:  # blank cell, not just implausible
+                recovered = transform.parameter_count_from_name(name)
+                params = transform.plausible_parameter_count(recovered) if recovered is not None else None
+                if params is None:
+                    out.reject(name, "parameter_not_specified")
+                    continue
+                params_estimated = True
+                out.bump("parameter_estimated_from_name")
 
         # M4: domain
         domain = transform.primary_domain(r.get("domain"), r.get("task"))
@@ -225,6 +239,7 @@ def cleanse_models(ods: pd.DataFrame) -> CleanResult:
                 "is_generative": bool(is_gen),
                 "throughput_unit": unit,
                 "parameter_count": params,
+                "parameter_count_is_estimated": params_estimated,
                 "parameter_bucket": transform.parameter_bucket(params),
                 "training_compute_flop": transform.to_float(r.get("training_compute_flop")),
                 "release_date": release_date,

@@ -90,24 +90,52 @@ def test_model_domain_priority_and_org_alias():
 def test_model_country_falls_back_to_unknown_when_source_blank():
     df = _model_frame(
         [{"model": "M9", "organization": "OpenAI", "publication_date": "2024-01-01",
-          "domain": "Language", "country_of_organization": ""}]
+          "domain": "Language", "parameters": "7000000000", "country_of_organization": ""}]
     )
     row = cleansing.cleanse_models(df).frame.iloc[0]
     assert row["organization_country"] == "Unknown"
 
 
-def test_model_missing_parameters_kept_with_unknown_bucket():
+def test_model_missing_parameters_recovered_from_name():
     df = _model_frame(
         [
-            {"model": "M2", "organization": "Anthropic", "publication_date": "2025-01-09",
-             "domain": "Language", "parameters": ""},
+            {"model": "Llama-3.1-Nemotron-70B-Instruct", "organization": "Anthropic",
+             "publication_date": "2025-01-09", "domain": "Language", "parameters": ""},
+        ]
+    )
+    result = cleansing.cleanse_models(df)
+    row = result.frame.iloc[0]
+    assert row["parameter_count"] == 70e9
+    assert bool(row["parameter_count_is_estimated"]) is True
+    assert row["parameter_bucket"] == "70-180B"
+    assert "parameter_estimated_from_name" in result.rule_counts
+
+
+def test_model_missing_parameters_discarded_when_name_has_no_size():
+    df = _model_frame(
+        [
+            {"model": "Claude Opus 5", "organization": "Anthropic",
+             "publication_date": "2025-01-09", "domain": "Language", "parameters": ""},
+        ]
+    )
+    result = cleansing.cleanse_models(df)
+    assert result.frame.empty
+    assert any(r["rule"] == "parameter_not_specified" for r in result.rejects)
+    assert "parameter_missing" in result.rule_counts
+
+
+def test_model_implausible_parameters_still_kept_null_not_discarded():
+    df = _model_frame(
+        [
+            {"model": "Tiny Model 16", "organization": "Anthropic",
+             "publication_date": "2025-01-09", "domain": "Language", "parameters": "16"},
         ]
     )
     result = cleansing.cleanse_models(df)
     row = result.frame.iloc[0]
     assert pd.isna(row["parameter_count"]) or row["parameter_count"] is None
     assert row["parameter_bucket"] == "unknown"
-    assert "parameter_missing" in result.rule_counts
+    assert "parameter_out_of_range" in result.rule_counts
 
 
 def test_model_bad_date_rejected():

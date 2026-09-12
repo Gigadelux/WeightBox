@@ -110,9 +110,11 @@ mem_type, gpu_chip`
 | detail | text | yes |
 | rejected_at | timestamptz default now() | no |
 
-`rule` values: model side `duplicate_model`, `bad_publication_date`; GPU side
-`pre_2016`, `duplicate_product_name`, `unknown_memory_type`, `missing_vram`,
-`missing_mem_clock`, `insufficient_memory_specs`.
+`rule` values: model side `duplicate_model`, `bad_publication_date`,
+`parameter_not_specified` (blank `Parameters` and no size recoverable from the
+model name); GPU side `pre_2016`, `duplicate_product_name`,
+`unknown_memory_type`, `missing_vram`, `missing_mem_clock`,
+`insufficient_memory_specs`.
 
 ## Star schema
 
@@ -123,7 +125,10 @@ Calendar hierarchy inlined (`release_date` then `release_month`,
 descriptive attribute of `primary_domain` used by the fact build.
 `organization_country` comes straight from the source `Country (of organization)`
 column (first comma-segment, long UN-style names shortened); `organization` is
-name-normalised through an alias table.
+name-normalised through an alias table. A model with a blank `Parameters` cell
+and no recoverable size in its name never reaches this table at all (rejected
+as `parameter_not_specified`, see `ods.reject_models` above); when a size is
+recovered from the name instead, `parameter_count_is_estimated` is set.
 
 | column | type | null |
 |---|---|---|
@@ -136,6 +141,7 @@ name-normalised through an alias table.
 | is_generative | boolean | no |
 | throughput_unit | text | yes |
 | parameter_count | numeric | yes |
+| parameter_count_is_estimated | boolean default false | no |
 | parameter_bucket | text | no |
 | training_compute_flop | numeric | yes |
 | release_date | date | no |
