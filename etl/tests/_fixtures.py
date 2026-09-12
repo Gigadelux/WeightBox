@@ -9,7 +9,9 @@ from pathlib import Path
 
 from SQL.tables.ods import GPU_CSV_HEADERS, MODEL_CSV_HEADERS
 
-# 6 models: 4 usable, 1 with no Parameters, 1 non-generative, 1 duplicate name.
+# 7 models: 4 usable, 1 non-generative, 1 duplicate name, 1 with no Parameters
+# but a size recoverable from its own name, 1 with no Parameters and no
+# recoverable name (discarded).
 MODEL_ROWS: list[dict[str, str]] = [
     {
         "Model": "Test-LLM-7B", "Organization": "OpenAI", "Publication date": "2024-03-14",
@@ -34,6 +36,11 @@ MODEL_ROWS: list[dict[str, str]] = [
     {
         "Model": "Test-Unknown-Params", "Organization": "Anthropic",
         "Publication date": "2025-01-09", "Domain": "Language", "Task": "Chat",
+        "Parameters": "",
+    },
+    {
+        "Model": "Test-Recovered-13B", "Organization": "Anthropic",
+        "Publication date": "2025-02-11", "Domain": "Language", "Task": "Chat",
         "Parameters": "",
     },
     {

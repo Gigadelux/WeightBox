@@ -100,6 +100,16 @@ def test_plausible_parameter_count_bounds():
     assert transform.plausible_parameter_count("9e13") is None
 
 
+def test_parameter_count_from_name():
+    assert transform.parameter_count_from_name("Llama-3.1-Nemotron-70B-Instruct") == 70e9
+    assert transform.parameter_count_from_name("Mixtral-8x7B") == 56e9
+    assert transform.parameter_count_from_name("Gemma-2-270M-it") == 270e6
+    # version numbers alone never match: no bare B/M/T token attached
+    assert transform.parameter_count_from_name("GPT-4o-mini") is None
+    assert transform.parameter_count_from_name("Claude Opus 5") is None
+    assert transform.parameter_count_from_name(None) is None
+
+
 def test_org_country_from_source_column_only():
     assert transform.org_country("United States of America") == "United States"
     assert transform.org_country("United States of America,France") == "United States"

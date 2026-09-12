@@ -130,6 +130,7 @@ CREATE TABLE IF NOT EXISTS public.dim_model (
     is_generative boolean NOT NULL,
     throughput_unit text,
     parameter_count numeric,
+    parameter_count_is_estimated boolean NOT NULL DEFAULT false,
     parameter_bucket text NOT NULL,
     training_compute_flop numeric,
     release_date date NOT NULL,
@@ -232,7 +233,6 @@ JOIN   dim_model m ON m.model_key = f.model_key
 JOIN   dim_gpu   g ON g.gpu_key   = f.gpu_key
 WHERE  f.quantization_required IS NOT NULL
 GROUP BY m.primary_domain, g.vram_bucket;
-
 
 -- Indexes (Phase 3)
 

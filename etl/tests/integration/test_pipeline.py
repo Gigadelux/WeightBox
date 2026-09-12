@@ -8,7 +8,7 @@ pytestmark = pytest.mark.integration
 
 
 def test_ods_holds_every_source_row(ran, db):
-    assert db.row_count("ods", "ods_models") == 6
+    assert db.row_count("ods", "ods_models") == 7
     assert db.row_count("ods", "ods_gpus") == 6
     assert db.fetch_scalar("SELECT count(*) FROM ods.load_audit") == 2
     assert db.row_count("public", "dim_gpu") == 3
@@ -29,6 +29,16 @@ def test_dimensions_reflect_cleansing(ran, db):
     assert db.fetch_scalar(
         "SELECT count(*) FROM ods.reject_models WHERE rule = 'duplicate_model'"
     ) >= 1
+    assert "Test-Unknown-Params" not in models  # no Parameters, no size in name -> discarded
+    assert db.fetch_scalar(
+        "SELECT count(*) FROM ods.reject_models WHERE rule = 'parameter_not_specified'"
+    ) >= 1
+    recovered = db.fetch_all(
+        "SELECT parameter_count, parameter_count_is_estimated FROM dim_model "
+        "WHERE model_nk = 'Test-Recovered-13B'"
+    )
+    assert recovered and recovered[0]["parameter_count"] == 13_000_000_000
+    assert recovered[0]["parameter_count_is_estimated"] is True
 
 
 def test_fact_is_the_full_cross_product_with_names(ran, db):

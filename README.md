@@ -37,7 +37,7 @@ flowchart LR
     end
     subgraph dw["PostgreSQL, ROLAP star schema"]
         G["dim_model · dim_gpu<br/>(calendar hierarchy inlined on dim_model)"]
-        H["fact_gpu_model_compatibility<br/>(~0.65M rows)"]
+        H["fact_gpu_model_compatibility<br/>(617 x 721 = 444,857 rows)"]
         I["mv_* materialized views"]
     end
     A --> O1
@@ -66,7 +66,9 @@ flowchart LR
   and Loading (all off the ODS tables). Cleansing is substantial: the GPU source
   has a BOM header, ~77 % missing memory-bus widths in the modern subset, dirty
   `memType` spellings, duplicate product names, and deliberately impossible
-  chip/memory combinations.
+  chip/memory combinations. On the model side, a third of the source rows carry
+  no `Parameters` value; the ETL tries to recover a size from the model name
+  itself (`"...-70B-Instruct"` → 70e9) and drops the row when it can't.
 - **Frontend** (out of scope of the spec): a Next.js + Recharts dashboard whose
   server components query the PostgreSQL star schema and materialized views
   **directly**, there is no separate API service, presenting the three OLAP
@@ -180,12 +182,11 @@ Both published ports bind to localhost; this is a local setup.
 
 ## Status
 
-The ETL loads 1,052 model records and 3,056 GPU records into ODS. Cleansing keeps
-1,052 models and 617 GPUs, producing 649,084 compatibility pairs. Compose now
-includes PostgreSQL, the one-shot ETL, the Next.js frontend, and an optional
-isolated test setup. The frontend includes a Tailwind hardware workbench, direct
-server-side SQL integration, methodology and dataset pages, and readiness checks.
-See [frontend/README.md](./frontend/README.md) for frontend tests and development.
+The ETL is implemented and tested against the real datasets: 1,052 model records
+and 3,056 GPU records load into the ODS, cleansing keeps 1,052 models and 617
+GPUs, and the fact table holds their cross product. `docker-compose.yml` defines
+`db` and `etl` only; there is no API tier. The frontend is still the default
+Next.js scaffold.
 
 ## Team
 

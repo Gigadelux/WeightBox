@@ -111,6 +111,10 @@ is the canonical model dimension.
 | `Parameters` | 720 | **332** | range 16 → 3×10¹² |
 | `Training compute (FLOP)` | 536 | 516 | descriptive only |
 
+Of the 332 blank `Parameters` cells, 1 recovers a size from the model name
+(M3) and the remaining 331 are dropped (`parameter_not_specified`): **721**
+of the 1,052 model rows reach `dim_model`.
+
 Primary-domain distribution after normalisation (Section 5.5): Language 550,
 Vision 205, Image generation 52, Games 49, Biology 43, Speech 38, Video 24,
 Robotics 21, Other/misc 70. **Generative ≈ 672, non-generative ≈ 380.**
@@ -146,9 +150,10 @@ The three OLAP analyses from the proposal:
 ### 2.4 Granularity, volume, historical interval
 
 - **Grain:** one row per `(GPU, model)` pair.
-- **Volume:** ~816 GPUs × 1,052 models ≈ **0.86 M** fact rows (≈ 0.71 M if GPUs
-  lacking a usable VRAM value are quarantined). Tractable for a single Postgres
-  instance; the proposal's 1.75 M estimate assumed a larger model set.
+- **Volume:** as-built, cleansing keeps 617 of 3,056 GPU rows and 721 of 1,052
+  model rows, so the fact is 617 × 721 = **444,857** rows. Tractable for a
+  single Postgres instance; the proposal's 1.75 M estimate assumed a larger
+  model set.
 - **Historical interval:** model publication 1950-2026; GPU release 2016-2025.
   Model publication date is the fact's **only genuine time axis**; GPU release
   year is a plain attribute of `DIM_GPU`.
@@ -314,7 +319,8 @@ CREATE TABLE dim_model (
     organization_country  text        NOT NULL DEFAULT 'Unknown',
     primary_domain        text        NOT NULL,              -- normalised single domain
     is_generative         boolean     NOT NULL,
-    parameter_count       numeric,                           -- * nullable (332 models)
+    parameter_count       numeric,                           -- * nullable (16 models, out-of-range source values)
+    parameter_count_is_estimated boolean NOT NULL DEFAULT false, -- recovered from model_name, not the source Parameters cell
     parameter_bucket      text        NOT NULL,              -- '<1B','1-7B','7-13B',...,'unknown'
     throughput_unit       text,                              -- descriptive attr of primary_domain (Appendix C)
     training_compute_flop numeric,                           -- * nullable, descriptive
@@ -594,7 +600,7 @@ end of Phase 2) and routes rejected rows to `ods.reject_gpus` /
 |---|---|
 | M1 | `Model`: `strip()`; must be unique (natural key), on collision keep the row with the most non-null columns, reject the other (`duplicate_model`). |
 | M2 | `Publication date` → `date` → `release_date`; unparseable → reject (`bad_publication_date`), in the current CSV **all 1,052 rows parse**. Derive `release_month`, `release_quarter`, `release_year`, `release_decade` from it (no separate time table). |
-| M3 | `Parameters` → numeric; **null is allowed** (332 rows). Such models stay in `dim_model` with `parameter_bucket='unknown'`; their fact rows carry NULL fit/quant/throughput measures. Implausible values (`< 1e3` or `> 5e12`) → null + count. |
+| M3 | `Parameters` → numeric. When the source cell is **blank** (332 rows), recover a size token from the model name itself (`"Llama-3.1-Nemotron-70B-Instruct"` → 70e9, `"Mixtral-8x7B"` → 56e9); if the name carries no such token, reject the model (`parameter_not_specified`, 331 of the 332 rows in the current CSV) rather than keep it with an unknown parameter count. A recovered value is flagged `parameter_count_is_estimated = true`. Implausible **non-blank** values (`< 1e3` or `> 5e12`, 16 rows) are a different failure mode: they stay in `dim_model` with `parameter_count = NULL`, `parameter_bucket = 'unknown'`, fact rows carry NULL fit/quant/throughput measures (`parameter_out_of_range`). |
 | M4 | `Domain`: null → infer from `Task` (Section 5.5); derive `primary_domain`, `is_generative`. |
 | M5 | `Organization`: `strip()`; apply alias table (`Google DeepMind`/`DeepMind`/`Google` families, `Meta AI`/`Facebook AI Research`, `Z.ai`/`Zhipu AI`, …); null → `'Unknown'`. `organization_country`: from `Country (of organization)` directly (first comma-segment, UN-style long names shortened, e.g. `United States of America` → `United States`); blank → `'Unknown'`. No per-organisation country guessing: the source column is populated for every model that has a country, and a lookup keyed on organisation disagreed with it on ~330 of 1,052 rows. |
 | M6 | `Confidence` passed through as-is (descriptive). |
@@ -845,7 +851,8 @@ The ETL loader runs `REFRESH MATERIALIZED VIEW` for all three after the fact loa
 | `primary_domain` | text | `Domain` (+ `Task`) | multi-value → priority pick (5.5) | no |
 | `is_generative` | boolean | derived | Appendix C | no |
 | `throughput_unit` | text | derived | Appendix C (function of `primary_domain`) | yes |
-| `parameter_count` | numeric | `Parameters` | to numeric, plausibility (M3) | **yes** |
+| `parameter_count` | numeric | `Parameters` | to numeric, plausibility, name-recovery fallback (M3) | **yes** |
+| `parameter_count_is_estimated` | boolean | derived | true iff recovered from `Model` rather than `Parameters` (M3) | no |
 | `parameter_bucket` | text | derived | binning (5.7) | no |
 | `training_compute_flop` | numeric | `Training compute (FLOP)` | to numeric | yes |
 | `release_date` | date | `Publication date` | parse (M2) | no |
