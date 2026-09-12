@@ -38,7 +38,8 @@ test("real warehouse contains the complete GPU × model cross product", async ()
     `SELECT (SELECT count(*) FROM dim_gpu)::int AS gpus, (SELECT count(*) FROM dim_model)::int AS models, (SELECT count(*) FROM fact_gpu_model_compatibility)::int AS pairs`,
   );
   assert.ok(counts.gpus > 500);
-  assert.ok(counts.models > 1000);
+  const [source] = await rows("SELECT count(*)::int AS total FROM ods.ods_models");
+  assert.ok(counts.models > 0 && counts.models < source.total);
   assert.equal(counts.gpus * counts.models, counts.pairs);
   assert.equal(summary.total, counts.models);
   assert.equal(
@@ -59,14 +60,12 @@ test("every compatibility filter agrees with real summary totals", async () => {
     fp16: summary.fp16,
     quantized: summary.int8 + summary.int4,
     too_large: summary.too_large,
-    unknown: summary.unknown,
   })) {
     const filters = parseFilters({ status });
     const query = modelQueries(gpu.id, filters);
     assert.equal((await rows(query.count))[0].total, expected);
     const models = await rows(query.rows);
     for (const model of models) {
-      if (status === "unknown") assert.equal(model.footprint, null);
       if (status === "fp16") assert.ok(model.footprint <= gpu.vram);
       if (status === "quantized")
         assert.ok(

@@ -5,7 +5,6 @@ export const STATUSES = {
   fp16: "Fits at FP16",
   quantized: "Needs quantization",
   too_large: "Too large",
-  unknown: "Unknown",
 };
 export const SORTS = {
   compatibility: "Compatibility",

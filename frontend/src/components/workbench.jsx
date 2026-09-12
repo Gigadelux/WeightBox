@@ -20,7 +20,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
   Cpu,
   Info,
   Layers,
@@ -189,6 +188,7 @@ function HardwarePanel({ gpu, summary }) {
 }
 function Summary({ summary, active, onSelect, disabled }) {
   const transition = useMotionTiming(0.18);
+  const evaluated = summary.total - summary.unknown;
   const cards = [
     {
       key: "fp16",
@@ -214,19 +214,11 @@ function Summary({ summary, active, onSelect, disabled }) {
       icon: X,
       tone: "too-large",
     },
-    {
-      key: "unknown",
-      title: "Unknown",
-      value: summary.unknown,
-      detail: "Parameter count missing",
-      icon: CircleHelp,
-      tone: "unknown",
-    },
   ];
   return (
     <section
-      className="compatibility-summary grid grid-cols-[repeat(4,_minmax(0,_1fr))] [border:1px_solid_var(--line)] bg-[var(--paper)] rounded-[6px] overflow-hidden max-[850px]:grid-cols-[1fr_1fr]"
-      aria-label="Compatibility across all models on selected GPU"
+      className="compatibility-summary grid grid-cols-[repeat(3,_minmax(0,_1fr))] [border:1px_solid_var(--line)] bg-[var(--paper)] rounded-[6px] overflow-hidden max-[850px]:grid-cols-[1fr]"
+      aria-label="Compatibility results for models with valid parameter counts"
     >
       {cards.map(({ key, title, value, detail, icon: Icon, tone }) => (
         <m.button
@@ -251,7 +243,7 @@ function Summary({ summary, active, onSelect, disabled }) {
             {detail}
           </span>
           <span className="summary-meter h-0.75 rounded-[2px] bg-[var(--surface)] block mt-3.5 overflow-hidden max-[850px]:mt-2.25">
-            <span style={{ width: `${(value / summary.total) * 100}%` }} />
+            <span style={{ width: `${evaluated ? (value / evaluated) * 100 : 0}%` }} />
           </span>
         </m.button>
       ))}
@@ -688,7 +680,13 @@ export function Workbench({ data }) {
               disabled={pending}
             />
             <p className="summary-scope mt-2.25 mx-0.25 mb-6 text-[var(--muted)] text-[9px] max-[620px]:text-[9px] max-[620px]:leading-[1.7] max-[620px]:mb-5.75">
-              All {integer(data.summary.total)} models on your selected GPU.
+              {integer(data.summary.total)} warehouse models evaluated against
+              your selected GPU for compatibility. Evaluation does not guarantee
+              fit. Bars show shares of the {integer(data.summary.total - data.summary.unknown)} models
+              with valid parameter counts.
+              {data.summary.unknown > 0 && (
+                <> Fit cannot be determined for {integer(data.summary.unknown)} retained models without valid parameter counts.</>
+              )}{" "}
               Select a category to filter the results.
             </p>
             <ModelResults data={data} pending={pending} navigate={navigate} />

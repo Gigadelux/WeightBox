@@ -902,10 +902,10 @@ table {
     font-size: 34px;
     letter-spacing: -1.3px;
   }
-  .summary-item:nth-child(2) {
+  .summary-item {
     border-right: 0;
   }
-  .summary-item:nth-child(-n + 2) {
+  .summary-item:not(:last-child) {
     border-bottom: 1px solid var(--line);
   }
   .hardware-card-top > span > svg {

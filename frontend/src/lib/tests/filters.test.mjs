@@ -20,6 +20,7 @@ test("URL inputs reject repeated, unknown, prototype, and invalid pagination val
   assert.equal(filters.gpu, DEFAULT_GPU);
   assert.equal(filters.q, "x");
   assert.equal(filters.status, "all");
+  assert.equal(parseFilters({ status: "unknown" }).status, "all");
   assert.equal(filters.sort, "compatibility");
   assert.equal(filters.page, 1);
   for (const page of ["NaN", "Infinity", "1.4", ["2", "3"]])
@@ -35,7 +36,7 @@ test("URLs preserve stable GPU identity and restore filters across shares", () =
     gpu: "GPU & Plus|2022",
     q: "a+b %",
     domain: "Image generation",
-    status: "unknown",
+    status: "quantized",
     page: "3",
   });
   const url = filterUrl(filters);

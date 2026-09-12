@@ -4,7 +4,6 @@ const statusPredicates = {
   fp16: "f.quantization_required = 'none'",
   quantized: "f.quantization_required IN ('8-bit', '4-bit')",
   too_large: "f.quantization_required = 'does-not-fit'",
-  unknown: "f.quantization_required IS NULL",
 };
 const orders = {
   compatibility:

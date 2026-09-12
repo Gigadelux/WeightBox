@@ -1,0 +1,7 @@
+# Only for npm run dev on the host. Compose supplies these automatically.
+# Match the credentials in the repository-root .env.
+POSTGRES_USER=weightbox_admin
+POSTGRES_PASSWORD=change_me
+POSTGRES_DB=weightbox
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432

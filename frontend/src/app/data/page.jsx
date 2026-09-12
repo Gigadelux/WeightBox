@@ -53,7 +53,7 @@ export default async function DataPage() {
           <Reveal stagger inView className="dataset-metrics grid grid-cols-[repeat(3,_1fr)] [border-top:1px_solid_var(--line)] [border-bottom:1px_solid_var(--line)] mt-2.5 mx-0 mb-8.5 py-7.5 px-0 max-[620px]:py-5 max-[620px]:px-0">
             {[
               [data.gpus, "Graphics cards", "Cleaned hardware records"],
-              [data.models, "AI models", "Across research domains"],
+              [data.models, "AI models", "Retained in the warehouse"],
               [data.pairs, "GPU × model pairs", "One record per combination"],
             ].map(([value, title, note]) => (
               <div key={title}>
@@ -99,7 +99,9 @@ export default async function DataPage() {
                 graphics-card dataset; model records come from the notable AI
                 models snapshot. The ETL removes rejected and duplicate records,
                 keeps eligible GPUs from 2016 onward, and builds compatibility
-                estimates. See the repository’s dataset documentation for source
+                estimates. These retained models are evaluated against GPUs for
+                compatibility; evaluation does not guarantee that a model fits.
+                See the repository’s dataset documentation for source
                 attribution and transformation rules.
               </p>
             </section>
@@ -109,13 +111,6 @@ export default async function DataPage() {
               </span>
               <h2>The gaps are visible.</h2>
               <ul className="quality-list p-0 my-3.75 mx-0 list-none">
-                <li>
-                  <strong>{integer(data.unknown)}</strong>
-                  <div>
-                    <h3>Models without parameter counts</h3>
-                    <p>Their memory fit remains unknown.</p>
-                  </div>
-                </li>
                 <li>
                   <strong>{integer(data.estimated)}</strong>
                   <div>
@@ -136,6 +131,9 @@ export default async function DataPage() {
                 architecture mappings. Specifications are dataset-derived, not
                 manufacturer-verified. The two GPU quality categories may
                 overlap.
+                {data.unknown > 0 && (
+                  <> Fit cannot be determined for {integer(data.unknown)} retained models without valid parameter counts.</>
+                )}
               </p>
             </section>
           </div>
